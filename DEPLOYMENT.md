@@ -24,7 +24,7 @@ The project `green-tooth-69042919` (Singapore) is linked. Its connection strings
 npm run neon -- npx prisma migrate deploy    # create the tables in Neon
 npm run neon -- npm run seed                  # first admin account (set ADMIN_PASSWORD first)
 ```
-In Vercel, copy `DATABASE_URL` and `DIRECT_URL` from `.env.neon` into the environment variables (step 4). Never paste them into chat or commit them.
+The Neon tables already exist (3 migrations applied). The three variables Vercel needs are ready in `.env.vercel` (database, direct database, and a fresh signing key). Open it with `open -e .env.vercel` and paste its lines into Vercel's environment variables (step 4). Never paste them into chat or commit them.
 
 ## 4. Create the project (Vercel)
 1. **Add New, Project**, import the GitHub repository. Framework is detected as Next.js.
