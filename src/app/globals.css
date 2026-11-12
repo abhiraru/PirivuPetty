@@ -1,26 +1,220 @@
 @import "tailwindcss";
 
+/* Diya design tokens. Light is the base; dark redefines the same names. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #eef3f1;
+  --card: #ffffff;
+  --fg: #10252a;
+  --muted: #56706f;
+  --line: #dce6e3;
+  --subtle: #f4f8f6;
+  --subtle-2: #e6efec;
+  --primary: #0d3b3e;
+  --primary-hover: #14565a;
+  --primary-fg: #f3fbf9;
+  --accent: #d9831a;
+  --link: #0d6b70;
+  --hero: #0d3b3e;
+  --hero-fg: #f3fbf9;
+  --hero-soft: rgba(255, 255, 255, 0.1);
+  --good: #17795a;
+  --good-bg: #d7f1e6;
+  --warn: #8f5a07;
+  --warn-bg: #fbe8c4;
+  --bad: #b2362b;
+  --bad-bg: #fbdcd8;
+  --on-bad: #ffffff;
+  --radius-card: 18px;
+  --c1: #0f766e;
+  --c2: #d9831a;
+  --c3: #4f5fd1;
+  --c4: #c2456b;
+  --c5: #6a9f2e;
+  --c6: #6b7c8c;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --bg: #091514;
+    --card: #11221f;
+    --fg: #e6f2ef;
+    --muted: #8ba8a3;
+    --line: #1f3532;
+    --subtle: #0e1d1b;
+    --subtle-2: #183230;
+    --primary: #f2a445;
+    --primary-hover: #ffb764;
+    --primary-fg: #1a1103;
+    --accent: #f2a445;
+    --link: #f2a445;
+    --hero: #0f3c3a;
+    --hero-fg: #f0faf7;
+    --hero-soft: rgba(255, 255, 255, 0.08);
+    --good: #5bd3a4;
+    --good-bg: #123a2d;
+    --warn: #f4c257;
+    --warn-bg: #3a2c0c;
+    --bad: #ff9b90;
+    --bad-bg: #401d19;
+    --on-bad: #2a0a07;
+    --c1: #3fc4b4;
+    --c2: #f2a445;
+    --c3: #8b9bff;
+    --c4: #ff8fb0;
+    --c5: #a3d65c;
+    --c6: #9aaabb;
+    color-scheme: dark;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root[data-theme="dark"] {
+  --bg: #091514;
+  --card: #11221f;
+  --fg: #e6f2ef;
+  --muted: #8ba8a3;
+  --line: #1f3532;
+  --subtle: #0e1d1b;
+  --subtle-2: #183230;
+  --primary: #f2a445;
+  --primary-hover: #ffb764;
+  --primary-fg: #1a1103;
+  --accent: #f2a445;
+  --link: #f2a445;
+  --hero: #0f3c3a;
+  --hero-fg: #f0faf7;
+  --hero-soft: rgba(255, 255, 255, 0.08);
+  --good: #5bd3a4;
+  --good-bg: #123a2d;
+  --warn: #f4c257;
+  --warn-bg: #3a2c0c;
+  --bad: #ff9b90;
+  --bad-bg: #401d19;
+  --on-bad: #2a0a07;
+  --c1: #3fc4b4;
+  --c2: #f2a445;
+  --c3: #8b9bff;
+  --c4: #ff8fb0;
+  --c5: #a3d65c;
+  --c6: #9aaabb;
+  color-scheme: dark;
 }
+
+/* Tailwind names -> tokens. The existing pages keep their class names and pick up the theme. */
+@theme inline {
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+  --color-page: var(--bg);
+  --color-card: var(--card);
+  --color-fg: var(--fg);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-accent: var(--accent);
+  --color-link: var(--link);
+  --color-hero: var(--hero);
+  --color-hero-fg: var(--hero-fg);
+  --color-line: var(--line);
+  --color-good: var(--good);
+  --color-good-bg: var(--good-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-on-bad: var(--on-bad);
+  --color-gray-50: var(--subtle);
+  --color-gray-100: var(--subtle-2);
+  --color-gray-500: var(--muted);
+  --color-gray-600: var(--muted);
+  --color-gray-700: var(--muted);
+  --color-red-300: var(--bad);
+  --color-red-600: var(--bad);
+  --color-red-700: var(--bad);
+  --color-green-600: var(--good);
+  --color-green-700: var(--good);
+}
+
+@layer base {
+  *, ::before, ::after { border-color: var(--line); }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-jakarta), system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  input, select, textarea {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible,
+  button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
+  }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+    h2 { letter-spacing: -0.01em; }
+  table { font-variant-numeric: tabular-nums; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button, a, input, select { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* Theme button: moon while the page is light, sun while it is dark. Decided from the theme alone so there is no flash. */
+.theme-toggle .theme-sun { display: none; }
+.theme-toggle .theme-moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .theme-sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle .theme-moon { display: none; }
+}
+:root[data-theme="dark"] .theme-toggle .theme-sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .theme-moon { display: none; }
+
+/* ---------- Buttons: every clickable thing uses these. See components/ui/btn.ts ---------- */
+@layer components {
+  .btn {
+    --h: 40px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: var(--h); padding: 0 16px; border-radius: 12px; border: 1px solid transparent;
+    font-size: 14px; line-height: 1; font-weight: 600; white-space: nowrap; text-decoration: none; cursor: pointer;
+    color: var(--fg); background: transparent;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.05s;
+  }
+  .btn svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--primary); color: var(--primary-fg); }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-secondary { background: var(--card); border-color: var(--line); }
+  .btn-secondary:hover { background: var(--subtle-2); }
+  .btn-ghost { color: var(--link); }
+  .btn-ghost:hover { background: var(--subtle-2); }
+  .btn-danger { background: var(--bad-bg); color: var(--bad); }
+  .btn-danger:hover { box-shadow: inset 0 0 0 1px var(--bad); }
+  .btn-danger-solid { background: var(--bad); color: var(--on-bad); }
+  .btn-sm { --h: 32px; padding: 0 12px; font-size: 13px; border-radius: 10px; }
+  .btn-lg { --h: 48px; padding: 0 22px; font-size: 15px; }
+  .btn-icon { width: var(--h); padding: 0; }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+  .btn-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: btn-spin 0.7s linear infinite; }
+  @keyframes btn-spin { to { transform: rotate(360deg); } }
+
+  /* Segmented switch for 2 to 4 short choices (radio inputs underneath, so it works in a plain GET form). */
+  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--subtle-2); border-radius: 12px; }
+  .seg label { position: relative; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .seg input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
+  .seg label:has(input:checked) { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--link); outline-offset: 1px; }
+}
+
+/* Phones: bigger tap targets everywhere. */
+@media (max-width: 760px) {
+  .btn { --h: 44px; }
+  .btn-sm { --h: 40px; }
+  .seg label { height: 38px; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn-spinner { animation-duration: 2s; } }

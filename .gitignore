@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local bill uploads and backups
+/uploads
+/backups
+!.env.example
+.neon

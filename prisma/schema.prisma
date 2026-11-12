@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  TREASURER
+  COLLECTOR
+}
+
+enum FestivalStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum PaymentMode {
+  CASH
+  CHEQUE
+  ONLINE
+}
+
+enum ChequeStatus {
+  RECEIVED
+  DEPOSITED
+  CLEARED
+  BOUNCED
+}
+
+enum HandoverStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum RecordStatus {
+  VALID
+  VOIDED
+}
+
+enum PaidFrom {
+  CASH
+  BANK
+}
+
+enum BankTxnType {
+  DEPOSIT_CASH
+  WITHDRAWAL
+}
+
+// All money amounts are integers in paise.
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  phone        String?
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  areaAssignments AreaAssignment[]
+  collections     Collection[]
+  handovers       Handover[]
+  auditLogs       AuditLog[]
+}
+
+model Festival {
+  id            String         @id @default(cuid())
+  name          String
+  year          Int            @unique
+  status        FestivalStatus @default(DRAFT)
+  startDate     DateTime?
+  endDate       DateTime?
+  openingCash   Int            @default(0)
+  openingBank   Int            @default(0)
+  closingCash   Int?
+  closingBank   Int?
+  isHistorical  Boolean        @default(false)
+  importBatchId String?
+  createdAt     DateTime       @default(now())
+
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id])
+
+  areaAssignments AreaAssignment[]
+  pledges         Pledge[]
+  collections     Collection[]
+  handovers       Handover[]
+  bankTxns        BankTransaction[]
+  expenses        Expense[]
+}
+
+model Area {
+  id            String  @id @default(cuid())
+  name          String  @unique
+  description   String?
+  importBatchId String?
+
+  importBatch ImportBatch?     @relation(fields: [importBatchId], references: [id])
+  households  Household[]
+  assignments AreaAssignment[]
+}
+
+model AreaAssignment {
+  id          String @id @default(cuid())
+  festivalId  String
+  areaId      String
+  collectorId String
+
+  festival  Festival @relation(fields: [festivalId], references: [id])
+  area      Area     @relation(fields: [areaId], references: [id])
+  collector User     @relation(fields: [collectorId], references: [id])
+
+  @@unique([festivalId, areaId, collectorId])
+}
+
+model Household {
+  id            String   @id @default(cuid())
+  headName      String
+  phone         String?
+  altPhone      String?
+  address       String
+  areaId        String
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  importBatchId String?
+
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id])
+  area        Area         @relation(fields: [areaId], references: [id])
+  pledges     Pledge[]
+  collections Collection[]
+
+  @@index([areaId])
+}
+
+model Pledge {
+  id          String   @id @default(cuid())
+  festivalId  String
+  householdId String
+  amount      Int
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  festival  Festival  @relation(fields: [festivalId], references: [id])
+  household Household @relation(fields: [householdId], references: [id])
+
+  @@unique([festivalId, householdId])
+}
+
+model Collection {
+  id            String        @id @default(cuid())
+  festivalId    String
+  householdId   String
+  collectorId   String?
+  amount        Int
+  mode          PaymentMode
+  collectedOn   DateTime      @default(now())
+  txnId         String?       @unique
+  chequeNo      String?
+  chequeBank    String?
+  chequeDate    DateTime?
+  chequeStatus  ChequeStatus?
+  receiptNo     String?
+  recordedById  String?
+  imported      Boolean       @default(false)
+  importBatchId String?
+  status        RecordStatus  @default(VALID)
+  voidReason    String?
+  createdAt     DateTime      @default(now())
+
+  festival    Festival     @relation(fields: [festivalId], references: [id])
+  household   Household    @relation(fields: [householdId], references: [id])
+  collector   User?        @relation(fields: [collectorId], references: [id])
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id])
+
+  @@index([festivalId, householdId])
+  @@index([festivalId, collectorId])
+}
+
+model Handover {
+  id          String         @id @default(cuid())
+  festivalId  String
+  collectorId String
+  amount      Int
+  handedOn    DateTime       @default(now())
+  status      HandoverStatus @default(PENDING)
+  confirmedBy String?
+  note        String?
+
+  festival  Festival @relation(fields: [festivalId], references: [id])
+  collector User     @relation(fields: [collectorId], references: [id])
+}
+
+model BankTransaction {
+  id          String      @id @default(cuid())
+  festivalId  String
+  type        BankTxnType
+  amount      Int
+  date        DateTime    @default(now())
+  reference   String?
+  createdById String?
+
+  festival Festival @relation(fields: [festivalId], references: [id])
+}
+
+model ExpenseCategory {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  expenses Expense[]
+}
+
+model Expense {
+  id            String       @id @default(cuid())
+  festivalId    String
+  categoryId    String
+  description   String
+  amount        Int
+  paidFrom      PaidFrom
+  paidOn        DateTime     @default(now())
+  vendor        String?
+  billReference String?
+  attachmentUrl String?
+  status        RecordStatus @default(VALID)
+  voidReason    String?
+  createdById   String?
+
+  festival Festival        @relation(fields: [festivalId], references: [id])
+  category ExpenseCategory @relation(fields: [categoryId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model ImportBatch {
+  id        String    @id @default(cuid())
+  fileName  String
+  createdBy String?
+  summary   Json?
+  undoneAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  households  Household[]
+  collections Collection[]
+  areas       Area[]
+  festivals   Festival[]
+}

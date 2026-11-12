@@ -1,0 +1,28 @@
+# Nightly database dump kept as a downloadable artifact for 30 days.
+# Setup: in the GitHub repository go to Settings -> Secrets and variables -> Actions and add
+#   DIRECT_DATABASE_URL = the Neon DIRECT (non-pooled) connection string.
+name: Nightly database backup
+on:
+  schedule:
+    - cron: "30 20 * * *" # 02:00 India time
+  workflow_dispatch: {}
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install matching PostgreSQL client
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+      - name: Dump
+        env:
+          DB_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+        run: |
+          test -n "$DB_URL" || { echo "DIRECT_DATABASE_URL secret is missing"; exit 1; }
+          pg_dump --no-owner --no-privileges "$DB_URL" | gzip > festival-$(date +%Y%m%d).sql.gz
+          test -s festival-$(date +%Y%m%d).sql.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: festival-backup
+          path: festival-*.sql.gz
+          retention-days: 30
