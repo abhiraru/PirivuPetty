@@ -36,6 +36,8 @@ Instead of Neon you can use the database that Vercel creates for you (Storage, P
 - **Region:** note where the database was created (Vercel, Storage, your database). Set the project's Function Region (Settings, Functions) to the nearest Vercel region to the database, so pages do not wait on a long round trip.
 - **Going back to Neon:** disconnect or delete the Prisma Postgres database in Vercel Storage, then add `DATABASE_URL` and `DIRECT_URL` from `.env.neon`. Do this **before** real data is entered. Anything recorded in the other database does not move by itself (it can be moved with a database dump, see section 8).
 
+**Region is set in code.** `vercel.json` pins the app to Singapore (`sin1`) so it runs next to the Neon database (also Singapore). If the app and database are in different parts of the world every page becomes slow (we measured 1.1 seconds per database call from Washington to Singapore). Keep them together. If you ever move the database, change the region in `vercel.json` to match.
+
 ## 4. Create the project (Vercel)
 1. **Add New, Project**, import the GitHub repository. Framework is detected as Next.js.
 2. In **Build and Output Settings** set the build command to `npm run vercel-build` (it applies database migrations, then builds).
