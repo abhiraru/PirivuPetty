@@ -26,6 +26,16 @@ npm run neon -- npm run seed                  # first admin account (set ADMIN_P
 ```
 The Neon tables already exist (3 migrations applied). The three variables Vercel needs are ready in `.env.vercel` (database, direct database, and a fresh signing key). Open it with `open -e .env.vercel` and paste its lines into Vercel's environment variables (step 4). Never paste them into chat or commit them.
 
+## 3b. Option: use Vercel's own Prisma Postgres instead of Neon
+
+Instead of Neon you can use the database that Vercel creates for you (Storage, Prisma Postgres). The app works with either; `src/lib/dbEnv.ts` maps the host's variable names automatically, so there is nothing to convert.
+
+- Vercel creates `DATABASE_URL` (direct), `DATABASE_URL_POOLED`, `POSTGRES_URL` and `PRISMA_DATABASE_URL` itself. **Do not add or overwrite these.** The app uses the pooled one for queries and the direct one for database changes.
+- **Do add:** `AUTH_SECRET` (the one line from `.env.vercel`). Optionally `ADMIN_USERNAME` and `ADMIN_PASSWORD`: on the deploy that follows, the build creates your admin account if it does not exist yet. After you have signed in and changed the password you can delete `ADMIN_PASSWORD` from Vercel.
+- The build creates the tables itself (`prisma migrate deploy`), so there is nothing to run on your computer.
+- **Region:** note where the database was created (Vercel, Storage, your database). Set the project's Function Region (Settings, Functions) to the nearest Vercel region to the database, so pages do not wait on a long round trip.
+- **Going back to Neon:** disconnect or delete the Prisma Postgres database in Vercel Storage, then add `DATABASE_URL` and `DIRECT_URL` from `.env.neon`. Do this **before** real data is entered. Anything recorded in the other database does not move by itself (it can be moved with a database dump, see section 8).
+
 ## 4. Create the project (Vercel)
 1. **Add New, Project**, import the GitHub repository. Framework is detected as Next.js.
 2. In **Build and Output Settings** set the build command to `npm run vercel-build` (it applies database migrations, then builds).

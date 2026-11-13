@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import { applyDbEnv } from "./dbEnv";
 import { assertEnv } from "./env";
 
+applyDbEnv();
 assertEnv();
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };

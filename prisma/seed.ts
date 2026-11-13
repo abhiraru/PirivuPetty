@@ -1,5 +1,8 @@
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { applyDbEnv } from "../src/lib/dbEnv";
+
+applyDbEnv();
 
 const db = new PrismaClient();
 
