@@ -89,3 +89,19 @@ Bill photos live in Vercel Blob and are not inside the database dump. Download t
 
 ## 10. Updating later
 Push a change to GitHub and Vercel redeploys. Database changes are applied automatically by `vercel-build`. Take an Excel export and check last night's dump exists before a release during festival season.
+
+## 11. Demo data, then real data
+
+For a presentation, sign in as admin and open **Demo data**. One click loads a closed 2023 festival and an active 2026 festival with three collectors and a treasurer (logins are shown on that page). One click removes it again.
+
+- The demo only loads into an **empty app** (no festivals, households or payments), so it never mixes with real records.
+- Everything in it has an id starting with `demo_`. **Remove demo data** deletes exactly that, plus anything the demo accounts entered while demonstrating. Real records and your admin account are never touched.
+- Remove it **before** real data goes in. The demo treasurer can see everything.
+
+**Moving to real data**
+1. Admin, Demo data, **Remove demo data**.
+2. Admin, Festivals: create the real festival, with the opening cash and bank balances you start with. Activate it.
+3. Admin, Users: create the real collectors and treasurer, each with their own strong password.
+4. Admin, Households, **Import from Excel**: columns `name, phone, address, area, amount, year`. One row per household per year. Past amounts become history; households with no amount are added as new. The preview shows problems before anything is saved, and an import can be undone.
+5. Admin, Areas: assign each collector to their areas for the active festival.
+6. Check Reports and the Fund page against your paper records, then give collectors their logins.
