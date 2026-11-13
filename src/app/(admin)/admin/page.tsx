@@ -38,8 +38,6 @@ export default async function AdminOverview() {
     <div className="space-y-5">
       <WelcomeHeader name={user.name} subtitle={`${festival.name} · ${festival.status === "ACTIVE" ? "collection in progress" : festival.status === "CLOSED" ? "closed" : "not started"}`}>
         <Link href="/admin/reports" className={btn("primary")}><Icon name="chart" />Open reports</Link>
-        <Link href="/admin/households/new" className={btn("secondary")}><Icon name="plus" />Add household</Link>
-        <Link href="/admin/households/import" className={btn("secondary")}><Icon name="upload" />Import from Excel</Link>
       </WelcomeHeader>
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Key figures">

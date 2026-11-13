@@ -11,7 +11,6 @@ const LINKS = [
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/audit", label: "Audit log" },
   { href: "/admin/backup", label: "Backup" },
-  { href: "/admin/demo", label: "Demo data" },
   { href: "/admin/users", label: "Users" },
 ];
 

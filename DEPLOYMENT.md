@@ -92,7 +92,7 @@ Push a change to GitHub and Vercel redeploys. Database changes are applied autom
 
 ## 11. Demo data, then real data
 
-For a presentation, sign in as admin and open **Demo data**. One click loads a closed 2023 festival and an active 2026 festival with three collectors and a treasurer (logins are shown on that page). One click removes it again.
+For a presentation, sign in as admin and go to `/admin/demo` (add it to the site address). It is deliberately not in the menu. One click loads a closed 2023 festival and an active 2026 festival with three collectors and a treasurer (logins are shown on that page). One click removes it again.
 
 - The demo only loads into an **empty app** (no festivals, households or payments), so it never mixes with real records.
 - Everything in it has an id starting with `demo_`. **Remove demo data** deletes exactly that, plus anything the demo accounts entered while demonstrating. Real records and your admin account are never touched.

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { cache } from "react";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import type { Role } from "@prisma/client";
@@ -58,13 +59,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 
 /** Current user from the session, re-checked against the database so disabled accounts lose access immediately. */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const session = await auth();
   if (!session?.user?.id) return null;
   const user = await db.user.findUnique({ where: { id: session.user.id } });
   if (!user || !user.isActive) return null;
   return { id: user.id, name: user.name, role: user.role };
-}
+});
 
 export async function requireRole(...allowed: Role[]): Promise<SessionUser> {
   return assertRole(await getCurrentUser(), ...allowed);
