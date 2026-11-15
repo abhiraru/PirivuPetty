@@ -3,7 +3,7 @@ import { computeBalances, type BalanceInputs } from "./balances";
 
 const zero: BalanceInputs = {
   openingCash: 0, openingBank: 0, directCash: 0, collectorCash: {}, confirmedHandovers: {}, pendingHandovers: {},
-  online: 0, chequeReceived: 0, chequeDeposited: 0, chequeCleared: 0, cashDeposits: 0, withdrawals: 0, cashExpenses: 0, bankExpenses: 0,
+  online: 0, chequeReceived: 0, chequeDeposited: 0, chequeCleared: 0, cashDeposits: 0, withdrawals: 0, cashExpenses: 0, bankExpenses: 0, incomeCash: 0, incomeBank: 0,
 };
 
 describe("computeBalances", () => {
@@ -50,5 +50,24 @@ describe("computeBalances", () => {
     const before = computeBalances({ ...zero, directCash: 9000 });
     const after = computeBalances({ ...zero, directCash: 9000, cashDeposits: 4000 });
     expect(after.netFund).toBe(before.netFund);
+  });
+
+  it("other income lands in the pot it was received into", () => {
+    const b = computeBalances({ ...zero, openingCash: 1000, openingBank: 5000, incomeBank: 312, incomeCash: 2000 });
+    expect(b.bank).toBe(5312);
+    expect(b.cashInHand).toBe(3000);
+    expect(b.otherIncome).toBe(2312);
+    expect(b.netFund).toBe(8312);
+  });
+
+  it("other income is not counted as collected from households", () => {
+    const b = computeBalances({ ...zero, directCash: 400, incomeBank: 900 });
+    expect(b.collectedTotal).toBe(400);
+    expect(b.otherIncome).toBe(900);
+  });
+
+  it("spending can use other income", () => {
+    const b = computeBalances({ ...zero, incomeBank: 1000, bankExpenses: 700 });
+    expect(b.bank).toBe(300);
   });
 });

@@ -19,6 +19,8 @@ export type BalanceInputs = {
   withdrawals: number; // bank -> cash
   cashExpenses: number;
   bankExpenses: number;
+  incomeCash: number; // other income received in cash (not from households)
+  incomeBank: number; // other income received in the bank, e.g. interest
 };
 
 export type Balances = {
@@ -30,6 +32,8 @@ export type Balances = {
   totalWithCollectors: number;
   totalPendingHandovers: number;
   collectedTotal: number;
+  /** Money from other sources (bank interest, sponsorship...), not from households. */
+  otherIncome: number;
   spentTotal: number;
   /** Cash a collector could still hand over, after confirmed and requested handovers. */
   available: Record<string, number>;
@@ -39,8 +43,8 @@ const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a +
 
 export function computeBalances(i: BalanceInputs): Balances {
   const confirmedTotal = sum(i.confirmedHandovers);
-  const cashInHand = i.openingCash + i.directCash + confirmedTotal - i.cashDeposits + i.withdrawals - i.cashExpenses;
-  const bank = i.openingBank + i.online + i.chequeCleared + i.cashDeposits - i.withdrawals - i.bankExpenses;
+  const cashInHand = i.openingCash + i.directCash + confirmedTotal - i.cashDeposits + i.withdrawals - i.cashExpenses + i.incomeCash;
+  const bank = i.openingBank + i.online + i.chequeCleared + i.cashDeposits - i.withdrawals - i.bankExpenses + i.incomeBank;
 
   const ids = new Set([...Object.keys(i.collectorCash), ...Object.keys(i.confirmedHandovers), ...Object.keys(i.pendingHandovers)]);
   const collectorHoldings = [...ids].map((collectorId) => ({
@@ -61,6 +65,7 @@ export function computeBalances(i: BalanceInputs): Balances {
     totalWithCollectors: collectorHoldings.reduce((a, c) => a + c.holding, 0),
     totalPendingHandovers: sum(i.pendingHandovers),
     collectedTotal: i.directCash + sum(i.collectorCash) + i.online + chequesNotCleared + i.chequeCleared,
+    otherIncome: i.incomeCash + i.incomeBank,
     spentTotal: i.cashExpenses + i.bankExpenses,
     available,
   };
@@ -68,7 +73,7 @@ export function computeBalances(i: BalanceInputs): Balances {
 
 export async function loadBalanceInputs(client: Client, festivalId: string): Promise<BalanceInputs> {
   const festival = await client.festival.findUniqueOrThrow({ where: { id: festivalId } });
-  const [collections, handovers, bankTxns, expenses] = await Promise.all([
+  const [collections, handovers, bankTxns, expenses, income] = await Promise.all([
     client.collection.groupBy({
       by: ["mode", "collectorId", "chequeStatus"],
       where: { festivalId, status: "VALID" },
@@ -77,6 +82,7 @@ export async function loadBalanceInputs(client: Client, festivalId: string): Pro
     client.handover.groupBy({ by: ["collectorId", "status"], where: { festivalId }, _sum: { amount: true } }),
     client.bankTransaction.groupBy({ by: ["type"], where: { festivalId }, _sum: { amount: true } }),
     client.expense.groupBy({ by: ["paidFrom"], where: { festivalId, status: "VALID" }, _sum: { amount: true } }),
+    client.otherIncome.groupBy({ by: ["receivedIn"], where: { festivalId, status: "VALID" }, _sum: { amount: true } }),
   ]);
 
   const inputs: BalanceInputs = {
@@ -94,6 +100,8 @@ export async function loadBalanceInputs(client: Client, festivalId: string): Pro
     withdrawals: 0,
     cashExpenses: 0,
     bankExpenses: 0,
+    incomeCash: 0,
+    incomeBank: 0,
   };
 
   for (const c of collections) {
@@ -118,6 +126,10 @@ export async function loadBalanceInputs(client: Client, festivalId: string): Pro
   for (const e of expenses) {
     if (e.paidFrom === "CASH") inputs.cashExpenses += e._sum.amount ?? 0;
     else inputs.bankExpenses += e._sum.amount ?? 0;
+  }
+  for (const r of income) {
+    if (r.receivedIn === "CASH") inputs.incomeCash += r._sum.amount ?? 0;
+    else inputs.incomeBank += r._sum.amount ?? 0;
   }
   return inputs;
 }

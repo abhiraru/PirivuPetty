@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { createUserSchema } from "./schema";
 import { changeOwnPassword, createUser, resetPassword, setUserActive } from "./service";
 
-export type FormState = { error?: string; ok?: boolean };
+export type FormState = { error?: string; ok?: boolean; message?: string };
 
 export async function createUserAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireRole("ADMIN");

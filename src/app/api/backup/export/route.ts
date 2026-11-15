@@ -24,6 +24,7 @@ export async function GET() {
     ["Handovers", db.handover.findMany({ orderBy: { handedOn: "asc" } })],
     ["Bank transactions", db.bankTransaction.findMany({ orderBy: { date: "asc" } })],
     ["Expense categories", db.expenseCategory.findMany()],
+    ["Other income", db.otherIncome.findMany({ orderBy: { receivedOn: "asc" } })],
     ["Expenses", db.expense.findMany({ orderBy: { paidOn: "asc" } })],
     ["Audit log", db.auditLog.findMany({ orderBy: { createdAt: "asc" } })],
   ];

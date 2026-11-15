@@ -54,6 +54,7 @@ export async function loadDemo(actorId: string) {
       await tx.collection.createMany({ data: plan.collections });
       await tx.handover.createMany({ data: plan.handovers });
       await tx.bankTransaction.createMany({ data: plan.bankTxns });
+      await tx.otherIncome.createMany({ data: plan.otherIncome });
       await tx.expense.createMany({
         data: plan.expenses.map(({ categoryName, ...e }) => ({ ...e, categoryId: categories.get(categoryName)! })),
       });
@@ -62,7 +63,7 @@ export async function loadDemo(actorId: string) {
       for (const f of plan.festivals) {
         const b = await getBalances(tx, f.id);
         const want = plan.expected[f.id];
-        const got = { cash: b.cashInHand, bank: b.bank, collected: b.collectedTotal, spent: b.spentTotal, holdings: b.totalWithCollectors, pending: b.totalPendingHandovers };
+        const got = { cash: b.cashInHand, bank: b.bank, collected: b.collectedTotal, otherIncome: b.otherIncome, spent: b.spentTotal, holdings: b.totalWithCollectors, pending: b.totalPendingHandovers };
         for (const k of Object.keys(want) as (keyof typeof want)[]) {
           if (got[k] !== want[k]) throw new Error(`Demo self-check failed for ${f.name}: ${k} is ${got[k]} but should be ${want[k]}. Nothing was saved.`);
         }
@@ -84,6 +85,7 @@ export async function removeDemo(actorId: string) {
         promises: (await tx.pledge.deleteMany({ where: { OR: [{ festivalId: demo }, { householdId: demo }, { household: { areaId: demo } }] } })).count,
         handovers: (await tx.handover.deleteMany({ where: { OR: [{ festivalId: demo }, { collectorId: demo }] } })).count,
         bankEntries: (await tx.bankTransaction.deleteMany({ where: { OR: [{ festivalId: demo }, { createdById: demo }] } })).count,
+        otherIncome: (await tx.otherIncome.deleteMany({ where: { OR: [{ festivalId: demo }, { createdById: demo }] } })).count,
         expenses: (await tx.expense.deleteMany({ where: { OR: [{ festivalId: demo }, { createdById: demo }] } })).count,
         assignments: (await tx.areaAssignment.deleteMany({ where: { OR: [{ festivalId: demo }, { areaId: demo }, { collectorId: demo }] } })).count,
         households: (await tx.household.deleteMany({ where: demoHousehold })).count,

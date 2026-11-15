@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -49,6 +49,19 @@ enum PaidFrom {
   BANK
 }
 
+enum ReceivedIn {
+  CASH
+  BANK
+}
+
+enum IncomeSource {
+  BANK_INTEREST
+  SPONSORSHIP
+  DONATION
+  REFUND
+  OTHER
+}
+
 enum BankTxnType {
   DEPOSIT_CASH
   WITHDRAWAL
@@ -83,6 +96,12 @@ model Festival {
   openingBank   Int            @default(0)
   closingCash   Int?
   closingBank   Int?
+  // Closing check: what the treasurer actually counted, entered before the year can be closed.
+  countedCash   Int?
+  countedBank   Int?
+  reconNote     String?
+  reconAt       DateTime?
+  reconById     String?
   isHistorical  Boolean        @default(false)
   importBatchId String?
   createdAt     DateTime       @default(now())
@@ -95,6 +114,7 @@ model Festival {
   handovers       Handover[]
   bankTxns        BankTransaction[]
   expenses        Expense[]
+  otherIncome     OtherIncome[]
 }
 
 model Area {
@@ -262,4 +282,26 @@ model ImportBatch {
   collections Collection[]
   areas       Area[]
   festivals   Festival[]
+}
+
+/**
+ * Money that is not a household payment: bank interest, sponsorship, a donation from outside the households, a refund.
+ */
+model OtherIncome {
+  id          String       @id @default(cuid())
+  festivalId  String
+  source      IncomeSource
+  description String
+  amount      Int
+  receivedIn  ReceivedIn
+  receivedOn  DateTime     @default(now())
+  reference   String?
+  status      RecordStatus @default(VALID)
+  voidReason  String?
+  createdById String?
+  createdAt   DateTime     @default(now())
+
+  festival Festival @relation(fields: [festivalId], references: [id])
+
+  @@index([festivalId])
 }

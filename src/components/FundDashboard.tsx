@@ -67,9 +67,10 @@ export async function FundDashboard({ header, renderTasks }: { header?: React.Re
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat label="Promised" value={d.pledged} hint={`${d.pledgeCount} households`} />
         <Stat label="Still to collect" value={d.stillToCollect} tone={d.stillToCollect > 0 ? "warn" : undefined} />
+        <Stat label="Other income" value={b.otherIncome} hint="Interest, sponsorship..." />
         <Stat label="Cheques not cleared" value={b.chequesNotCleared} hint="Counts once cleared" />
         <Stat
           label="Cash with collectors"

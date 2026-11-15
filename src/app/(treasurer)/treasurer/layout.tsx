@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/treasurer/cheques", label: "Cheques" },
   { href: "/treasurer/bank", label: "Bank" },
   { href: "/treasurer/expenses", label: "Expenses" },
+  { href: "/treasurer/income", label: "Other income" },
   { href: "/treasurer/year-end", label: "Year-end" },
   { href: "/treasurer/reports", label: "Reports" },
 ];

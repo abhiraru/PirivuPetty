@@ -40,9 +40,10 @@ export default async function AdminOverview() {
         <Link href="/admin/reports" className={btn("primary")}><Icon name="chart" />Open reports</Link>
       </WelcomeHeader>
 
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Key figures">
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-5" aria-label="Key figures">
         <Kpi label="Total fund" value={formatINR(b.netFund)} hint={`Cash ${formatINR(b.cashInHand)} · Bank ${formatINR(b.bank)}`} />
         <Kpi label="Collected" value={formatINR(b.collectedTotal)} hint={`${pct}% of ${formatINR(o.dash.pledged)} promised`} />
+        <Kpi label="Other sources" value={formatINR(b.otherIncome)} hint="Interest, sponsorship..." />
         <Kpi label="Spent" value={formatINR(b.spentTotal)} hint={b.collectedTotal > 0 ? `${Math.round((b.spentTotal / b.collectedTotal) * 100)}% of collected` : undefined} />
         <Kpi label="Still to collect" value={formatINR(o.dash.stillToCollect)} tone={o.dash.stillToCollect > 0 ? "warn" : undefined} hint={`${o.dash.pledgeCount} households promised`} />
       </section>

@@ -1,18 +1,33 @@
+import Link from "next/link";
+import { db } from "@/lib/db";
 import { formatINR } from "@/lib/money";
 import { listFestivals } from "@/modules/festivals/queries";
-import { suggestedOpening } from "@/modules/festivals/service";
+import { previousClosing, suggestedOpening } from "@/modules/festivals/service";
 import { CloseChecklist } from "@/components/CloseChecklist";
 import { ReopenForm } from "@/components/CloseForms";
-import { ActivateButton, CreateFestivalForm } from "./FestivalForms";
+import { ActivateButton, CreateFestivalForm, OpeningForm } from "./FestivalForms";
 import { PageHeader } from "@/components/PageHeader";
 
 export default async function FestivalsPage() {
   const [festivals, suggested] = await Promise.all([listFestivals(), suggestedOpening()]);
   const active = festivals.find((f) => f.status === "ACTIVE");
+  // What activation copied across, shown for as long as that festival is the active one.
+  const activation = active ? await db.auditLog.findFirst({ where: { action: "festival.activate", entityId: active.id }, orderBy: { createdAt: "desc" } }) : null;
+  const copied = (activation?.after ?? null) as { assignmentsCopied?: number; from?: string | null } | null;
+  const drafts = festivals.filter((f) => f.status === "DRAFT" && !f.isHistorical);
+  const previousByDraft = new Map(await Promise.all(drafts.map(async (f) => [f.id, await previousClosing(f.year)] as const)));
   const latestClosed = festivals.find((f) => f.status === "CLOSED" && !f.isHistorical);
   return (
     <div className="space-y-6">
       <PageHeader title="Festivals" />
+      {active && copied?.assignmentsCopied ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-warn-bg p-4 text-sm text-warn">
+          <span>
+            {copied.assignmentsCopied} collector area assignment{copied.assignmentsCopied === 1 ? " was" : "s were"} copied from {copied.from} when {active.name} was activated. Check they are still right.
+          </span>
+          <Link href="/admin/areas" className="btn btn-secondary btn-sm">Review areas</Link>
+        </div>
+      ) : null}
       {active && <CloseChecklist festival={active} canClose />}
       <CreateFestivalForm suggested={suggested} />
       <ul className="divide-y rounded-xl border bg-card">
@@ -28,6 +43,9 @@ export default async function FestivalsPage() {
               </p>
             </div>
             {f.status === "DRAFT" && !f.isHistorical && <ActivateButton id={f.id} />}
+            {f.status === "DRAFT" && !f.isHistorical && (
+              <OpeningForm id={f.id} cash={f.openingCash} bank={f.openingBank} previous={previousByDraft.get(f.id) ?? null} />
+            )}
             {f.id === latestClosed?.id && !active && <ReopenForm id={f.id} />}
           </li>
         ))}

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { SOURCE_LABEL } from "@/modules/income/schema";
 import { getBalances } from "@/modules/treasury/balances";
 import { loadFestivalData, type HouseholdRow } from "./data";
 import { withTotals, type Report, type Table } from "./types";
@@ -9,6 +10,7 @@ export const REPORTS = [
   { id: "pending", title: "Pending and unpaid households", description: "Every household that has not paid in full, with phone and collector." },
   { id: "cheques", title: "Cheques", description: "Every cheque and where it stands." },
   { id: "expenses", title: "Expenses", description: "Spending by category and the full list." },
+  { id: "income", title: "Other income", description: "Bank interest, sponsorship and other money that did not come from a household, with totals by source." },
   { id: "books", title: "Cash book and bank book", description: "Every cash and bank movement in date order with a running balance." },
   { id: "summary", title: "Year summary", description: "Income, spending, balances, and a comparison with earlier years." },
 ] as const;
@@ -160,6 +162,30 @@ async function expensesReport(festivalId: string): Promise<Table[]> {
   ];
 }
 
+async function incomeReport(festivalId: string): Promise<Table[]> {
+  const list = await db.otherIncome.findMany({ where: { festivalId, status: "VALID" }, orderBy: { receivedOn: "asc" } });
+  const bySource = new Map<string, { count: number; amount: number }>();
+  for (const r of list) {
+    const label = SOURCE_LABEL[r.source];
+    const cur = bySource.get(label) ?? { count: 0, amount: 0 };
+    bySource.set(label, { count: cur.count + 1, amount: cur.amount + r.amount });
+  }
+  return [
+    withTotals({
+      title: "Other income by source",
+      cols: [ftext("source", "Source"), int("count", "Entries"), money("amount", "Amount")],
+      rows: [...bySource.entries()].sort((a, b) => b[1].amount - a[1].amount).map(([source, v]) => ({ source, count: v.count, amount: v.amount })),
+    }),
+    withTotals({
+      title: "All other income",
+      note: "Money that did not come from a household payment. Voided entries are left out.",
+      dateKey: "iso",
+      cols: [text("date", "Date"), ftext("source", "Source"), text("description", "Note"), text("reference", "Reference"), ftext("receivedIn", "Received in"), money("amount", "Amount")],
+      rows: list.map((r) => ({ iso: isoDay(r.receivedOn), date: r.receivedOn.toLocaleDateString("en-IN"), source: SOURCE_LABEL[r.source], description: r.description, reference: r.reference ?? "", receivedIn: r.receivedIn === "BANK" ? "Bank" : "Cash", amount: r.amount })),
+    }),
+  ];
+}
+
 type Entry = { at: Date; label: string; delta: number };
 
 function book(title: string, opening: number, entries: Entry[], note?: string): Table {
@@ -174,11 +200,12 @@ function book(title: string, opening: number, entries: Entry[], note?: string): 
 
 async function booksReport(festivalId: string): Promise<Table[]> {
   const f = await db.festival.findUniqueOrThrow({ where: { id: festivalId } });
-  const [cols, handovers, bankTxns, expenses] = await Promise.all([
+  const [cols, handovers, bankTxns, expenses, income] = await Promise.all([
     db.collection.findMany({ where: { festivalId, status: "VALID" }, include: { household: { select: { headName: true } } } }),
     db.handover.findMany({ where: { festivalId, status: "CONFIRMED" }, include: { collector: { select: { name: true } } } }),
     db.bankTransaction.findMany({ where: { festivalId } }),
     db.expense.findMany({ where: { festivalId, status: "VALID" } }),
+    db.otherIncome.findMany({ where: { festivalId, status: "VALID" } }),
   ]);
   const cash: Entry[] = [];
   const bank: Entry[] = [];
@@ -193,6 +220,7 @@ async function booksReport(festivalId: string): Promise<Table[]> {
     cash.push({ at: t.date, label: t.type === "DEPOSIT_CASH" ? "Deposited into bank" : "Withdrawn from bank", delta: -d * t.amount });
     bank.push({ at: t.date, label: t.type === "DEPOSIT_CASH" ? "Cash deposited" : "Cash withdrawn", delta: d * t.amount });
   }
+  for (const x of income) (x.receivedIn === "CASH" ? cash : bank).push({ at: x.receivedOn, label: `Other income: ${SOURCE_LABEL[x.source]}${x.description !== SOURCE_LABEL[x.source] ? ` (${x.description})` : ""}`, delta: x.amount });
   for (const e of expenses) (e.paidFrom === "CASH" ? cash : bank).push({ at: e.paidOn, label: `Expense: ${e.description}`, delta: -e.amount });
   return [
     book("Cash book (treasurer's cash)", f.openingCash, cash),
@@ -202,10 +230,11 @@ async function booksReport(festivalId: string): Promise<Table[]> {
 
 async function summaryReport(festivalId: string): Promise<Table[]> {
   const f = await db.festival.findUniqueOrThrow({ where: { id: festivalId } });
-  const [b, pledgeSum, byMode, allFestivals] = await Promise.all([
+  const [b, pledgeSum, byMode, bySource, allFestivals] = await Promise.all([
     getBalances(db, festivalId),
     db.pledge.aggregate({ where: { festivalId }, _sum: { amount: true } }),
     db.collection.groupBy({ by: ["mode"], where: { festivalId, status: "VALID" }, _sum: { amount: true } }),
+    db.otherIncome.groupBy({ by: ["source"], where: { festivalId, status: "VALID" }, _sum: { amount: true } }),
     db.festival.findMany({ where: { status: { not: "DRAFT" } }, orderBy: { year: "asc" } }),
   ]);
   const mode = (m: string) => byMode.find((x) => x.mode === m)?._sum.amount ?? 0;
@@ -214,28 +243,42 @@ async function summaryReport(festivalId: string): Promise<Table[]> {
   const closingBank = f.closingBank ?? b.bank;
   const lines: [string, number][] = [
     ["Opening cash in hand", f.openingCash], ["Opening bank balance", f.openingBank], ["Promised", pledgeSum._sum.amount ?? 0],
-    ["Collected: cash", mode("CASH")], ["Collected: cheque", mode("CHEQUE")], ["Collected: online", mode("ONLINE")], ["Collected: total", collected],
-    ["Spent", b.spentTotal], ["Collected minus spent", collected - b.spentTotal],
+    ["Collected: cash", mode("CASH")], ["Collected: cheque", mode("CHEQUE")], ["Collected: online", mode("ONLINE")], ["Collected from households: total", collected],
+    ...bySource.filter((x) => (x._sum.amount ?? 0) > 0).map((x): [string, number] => [`Other sources: ${SOURCE_LABEL[x.source].toLowerCase()}`, x._sum.amount ?? 0]),
+    ["Other sources: total", b.otherIncome],
+    ["Total income (households + other sources)", collected + b.otherIncome],
+    ["Spent", b.spentTotal], ["Total income minus spent", collected + b.otherIncome - b.spentTotal],
     [f.status === "CLOSED" ? "Closing cash in hand" : "Cash in hand now", closingCash], [f.status === "CLOSED" ? "Closing bank balance" : "Bank balance now", closingBank],
     ["Carried to next year", closingCash + closingBank],
+    ...(f.countedCash !== null && f.countedBank !== null
+      ? ([
+          ["Closing check: cash counted", f.countedCash],
+          ["Closing check: bank statement balance", f.countedBank],
+          ["Closing check: cash difference (counted minus app)", f.countedCash - closingCash],
+          ["Closing check: bank difference (statement minus app)", f.countedBank - closingBank],
+        ] as [string, number][])
+      : []),
   ];
 
   const cmp = await Promise.all(
     allFestivals.map(async (x) => {
-      const [p, c, e] = await Promise.all([
+      const [p, c, o, e] = await Promise.all([
         db.pledge.aggregate({ where: { festivalId: x.id }, _sum: { amount: true } }),
         db.collection.aggregate({ where: { festivalId: x.id, status: "VALID" }, _sum: { amount: true } }),
+        db.otherIncome.aggregate({ where: { festivalId: x.id, status: "VALID" }, _sum: { amount: true } }),
         db.expense.aggregate({ where: { festivalId: x.id, status: "VALID" }, _sum: { amount: true } }),
       ]);
-      return { year: x.year, festival: x.name, pledged: p._sum.amount ?? 0, collected: c._sum.amount ?? 0, spent: e._sum.amount ?? 0, left: (c._sum.amount ?? 0) - (e._sum.amount ?? 0) };
+      const col = c._sum.amount ?? 0;
+      const other = o._sum.amount ?? 0;
+      return { year: x.year, festival: x.name, pledged: p._sum.amount ?? 0, collected: col, other, spent: e._sum.amount ?? 0, left: col + other - (e._sum.amount ?? 0) };
     }),
   );
   return [
-    { title: `Summary: ${f.name}`, cols: [text("line", "Item"), money("amount", "Amount")], rows: lines.map(([line, amount]) => ({ line, amount })) },
+    { title: `Summary: ${f.name}`, note: f.reconNote ? `Closing check note: ${f.reconNote}` : undefined, cols: [text("line", "Item"), money("amount", "Amount")], rows: lines.map(([line, amount]) => ({ line, amount })) },
     {
       title: "Comparison with other years",
       note: "Imported history years only have collected amounts.",
-      cols: [int("year", "Year"), text("festival", "Festival"), money("pledged", "Promised"), money("collected", "Collected"), money("spent", "Spent"), money("left", "Collected minus spent")],
+      cols: [int("year", "Year"), text("festival", "Festival"), money("pledged", "Promised"), money("collected", "Collected"), money("other", "Other sources"), money("spent", "Spent"), money("left", "Income minus spent")],
       rows: cmp,
     },
   ];
@@ -243,7 +286,7 @@ async function summaryReport(festivalId: string): Promise<Table[]> {
 
 const BUILDERS: Record<string, (festivalId: string) => Promise<Table[]>> = {
   collectors: collectorsReport, areas: areasReport, pending: pendingReport, cheques: chequesReport,
-  expenses: expensesReport, books: booksReport, summary: summaryReport,
+  expenses: expensesReport, income: incomeReport, books: booksReport, summary: summaryReport,
 };
 
 export async function buildReport(id: string, festivalId: string): Promise<Report | null> {

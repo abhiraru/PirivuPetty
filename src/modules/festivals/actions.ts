@@ -21,11 +21,13 @@ export async function createFestivalAction(_prev: FormState, formData: FormData)
 
 export async function activateFestivalAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireRole("ADMIN");
+  let message: string | undefined;
   try {
-    await activateFestival(admin.id, String(formData.get("id")));
+    const r = await activateFestival(admin.id, String(formData.get("id")));
+    if (r.copied > 0) message = `Activated. ${r.copied} collector area assignment${r.copied === 1 ? " was" : "s were"} copied from ${r.from}. Check them on the Areas page.`;
   } catch (e) {
     return { error: (e as Error).message };
   }
-  revalidatePath("/admin/festivals");
-  return { ok: true };
+  for (const p of ["/admin", "/treasurer", "/collector"]) revalidatePath(p, "layout");
+  return { ok: true, message };
 }

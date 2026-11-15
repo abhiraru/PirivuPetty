@@ -6,3 +6,18 @@ export const createFestivalSchema = z.object({
   openingCash: z.coerce.number().min(0).default(0),
   openingBank: z.coerce.number().min(0).default(0),
 });
+
+const rupees = z.coerce.number({ message: "Enter an amount" }).min(0, "Amount cannot be negative").max(100_000_000);
+
+/** What the treasurer counted: cash in the box and the balance on the bank statement. */
+export const closingCheckSchema = z.object({
+  countedCash: rupees,
+  countedBank: rupees,
+  note: z.string().trim().optional().transform((v) => v || undefined),
+});
+
+export const openingSchema = z.object({
+  id: z.string().min(1),
+  openingCash: rupees,
+  openingBank: rupees,
+});

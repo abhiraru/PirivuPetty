@@ -20,7 +20,7 @@ describe("demo plan shape", () => {
   it("prefixes every id so it can be found and removed later", () => {
     const ids = [
       ...plan.users, ...plan.areas, ...plan.households, ...plan.festivals, ...plan.pledges, ...plan.collections,
-      ...plan.handovers, ...plan.bankTxns, ...plan.expenses,
+      ...plan.handovers, ...plan.bankTxns, ...plan.expenses, ...plan.otherIncome,
     ].map((x) => x.id);
     expect(ids.every((id) => id.startsWith(DEMO_PREFIX))).toBe(true);
     expect(new Set(ids).size).toBe(ids.length);
@@ -55,17 +55,20 @@ describe("demo money is consistent", () => {
       const dep = plan.bankTxns.filter((b) => b.festivalId === f.id && b.type === "DEPOSIT_CASH").reduce((s, b) => s + b.amount, 0);
       const cashExp = plan.expenses.filter((e) => e.festivalId === f.id && e.paidFrom === "CASH").reduce((s, e) => s + e.amount, 0);
       const bankExp = plan.expenses.filter((e) => e.festivalId === f.id && e.paidFrom === "BANK").reduce((s, e) => s + e.amount, 0);
+      const incCash = plan.otherIncome.filter((x) => x.festivalId === f.id && x.receivedIn === "CASH").reduce((s, x) => s + x.amount, 0);
+      const incBank = plan.otherIncome.filter((x) => x.festivalId === f.id && x.receivedIn === "BANK").reduce((s, x) => s + x.amount, 0);
       const direct = cols.filter((c) => c.mode === "CASH" && !c.collectorId).reduce((s, c) => s + c.amount, 0);
       const online = cols.filter((c) => c.mode === "ONLINE").reduce((s, c) => s + c.amount, 0);
       const cleared = cols.filter((c) => c.mode === "CHEQUE" && c.chequeStatus === "CLEARED").reduce((s, c) => s + c.amount, 0);
-      expect(plan.expected[f.id].cash).toBe(f.openingCash + direct + hand - dep - cashExp);
-      expect(plan.expected[f.id].bank).toBe(f.openingBank + online + cleared + dep - bankExp);
+      expect(plan.expected[f.id].cash).toBe(f.openingCash + direct + incCash + hand - dep - cashExp);
+      expect(plan.expected[f.id].bank).toBe(f.openingBank + online + cleared + incBank + dep - bankExp);
+      expect(plan.expected[f.id].otherIncome).toBe(incCash + incBank);
       expect(plan.expected[f.id].collected).toBe(cols.reduce((s, c) => s + c.amount, 0));
       expect(plan.expected[f.id].spent).toBe(cashExp + bankExp);
     }
   });
   it("stores whole rupees only", () => {
-    const all = [...plan.pledges, ...plan.collections, ...plan.handovers, ...plan.bankTxns, ...plan.expenses];
+    const all = [...plan.pledges, ...plan.collections, ...plan.handovers, ...plan.bankTxns, ...plan.expenses, ...plan.otherIncome];
     expect(all.every((x) => Number.isInteger(x.amount) && x.amount > 0 && x.amount % 100 === 0)).toBe(true);
   });
 });
@@ -96,5 +99,13 @@ describe("demo tells a workflow story", () => {
   it("has history for the 'earlier years' section: 2023 payments by households still active in 2026", () => {
     const h23 = new Set(plan.collections.filter((c) => c.festivalId === f23.id).map((c) => c.householdId));
     expect(h23.size).toBeGreaterThanOrEqual(35);
+  });
+
+  it("includes bank interest and sponsorship in both festivals", () => {
+    for (const f of plan.festivals) {
+      const inc = plan.otherIncome.filter((x) => x.festivalId === f.id);
+      expect(inc.some((x) => x.source === "BANK_INTEREST" && x.receivedIn === "BANK")).toBe(true);
+      expect(inc.some((x) => x.source === "SPONSORSHIP")).toBe(true);
+    }
   });
 });

@@ -19,6 +19,7 @@ export type DemoPlan = {
   festivals: {
     id: string; name: string; year: number; status: "CLOSED" | "ACTIVE"; startDate: Date; endDate: Date | null;
     openingCash: number; openingBank: number; closingCash: number | null; closingBank: number | null;
+    countedCash?: number; countedBank?: number; reconNote?: string; reconAt?: Date; reconById?: string;
   }[];
   pledges: { id: string; festivalId: string; householdId: string; amount: number; createdById: string }[];
   collections: {
@@ -26,13 +27,14 @@ export type DemoPlan = {
     collectedOn: Date; txnId: string | null; chequeNo: string | null; chequeBank: string | null; chequeDate: Date | null; chequeStatus: ChequeStatus | null;
   }[];
   handovers: { id: string; festivalId: string; collectorId: string; amount: number; handedOn: Date; status: "CONFIRMED" | "PENDING"; confirmedBy: string | null; note: string | null }[];
+  otherIncome: { id: string; festivalId: string; source: "BANK_INTEREST" | "SPONSORSHIP" | "DONATION"; description: string; amount: number; receivedIn: "CASH" | "BANK"; receivedOn: Date; reference: string; createdById: string }[];
   bankTxns: { id: string; festivalId: string; type: "DEPOSIT_CASH"; amount: number; date: Date; reference: string; createdById: string }[];
   expenses: {
     id: string; festivalId: string; categoryName: string; description: string; amount: number; paidFrom: "CASH" | "BANK";
     paidOn: Date; vendor: string; billReference: string; createdById: string;
   }[];
   /** What the app's own balance rules should report once this is saved. Money in paise. */
-  expected: Record<string, { cash: number; bank: number; collected: number; spent: number; holdings: number; pending: number }>;
+  expected: Record<string, { cash: number; bank: number; collected: number; otherIncome: number; spent: number; holdings: number; pending: number }>;
 };
 
 const rs = (rupees: number) => rupees * 100;
@@ -99,6 +101,7 @@ export function buildDemoPlan(now: Date = new Date()): DemoPlan {
     collections: [],
     handovers: [],
     bankTxns: [],
+    otherIncome: [],
     expenses: [],
     expected: {},
   };
@@ -152,17 +155,23 @@ export function buildDemoPlan(now: Date = new Date()): DemoPlan {
   EXP23.forEach(([categoryName, description, amount, paidFrom, vendor, billReference, paidOn], k) =>
     plan.expenses.push({ id: `demo_e_23_${k + 1}`, festivalId: F23, categoryName, description, amount: rs(amount), paidFrom, paidOn, vendor, billReference, createdById: TREASURER }),
   );
+  plan.otherIncome.push(
+    { id: "demo_i_23_1", festivalId: F23, source: "BANK_INTEREST", description: "Savings account interest, April to September", amount: rs(412), receivedIn: "BANK", receivedOn: new Date(2023, 9, 31), reference: "Bank entry 31 Oct", createdById: TREASURER },
+    { id: "demo_i_23_2", festivalId: F23, source: "SPONSORSHIP", description: "Sri Lakshmi Jewellers sponsorship", amount: rs(3000), receivedIn: "CASH", receivedOn: new Date(2023, 9, 22), reference: "Receipt 118", createdById: TREASURER },
+  );
   const open23 = { cash: rs(5000), bank: rs(20000) };
+  const inc23 = { cash: sum(plan.otherIncome.filter((x) => x.festivalId === F23 && x.receivedIn === "CASH").map((x) => x.amount)), bank: sum(plan.otherIncome.filter((x) => x.festivalId === F23 && x.receivedIn === "BANK").map((x) => x.amount)) };
   const hand23 = sum(plan.handovers.filter((h) => h.festivalId === F23).map((h) => h.amount));
   const cashExp23 = sum(plan.expenses.filter((e) => e.festivalId === F23 && e.paidFrom === "CASH").map((e) => e.amount));
   const bankExp23 = sum(plan.expenses.filter((e) => e.festivalId === F23 && e.paidFrom === "BANK").map((e) => e.amount));
-  const dep23 = Math.max(0, Math.floor((open23.cash + hand23 - cashExp23 - rs(2000)) / 10000) * 10000);
+  const dep23 = Math.max(0, Math.floor((open23.cash + hand23 + inc23.cash - cashExp23 - rs(2000)) / 10000) * 10000);
   plan.bankTxns.push({ id: "demo_b_23_1", festivalId: F23, type: "DEPOSIT_CASH", amount: dep23, date: new Date(2023, 9, 28), reference: "Deposit slip 4471", createdById: TREASURER });
   const col23 = plan.collections.filter((c) => c.festivalId === F23);
   const exp23 = {
-    cash: open23.cash + hand23 - dep23 - cashExp23,
-    bank: open23.bank + sum(col23.filter((c) => c.mode !== "CASH").map((c) => c.amount)) + dep23 - bankExp23,
+    cash: open23.cash + hand23 + inc23.cash - dep23 - cashExp23,
+    bank: open23.bank + sum(col23.filter((c) => c.mode !== "CASH").map((c) => c.amount)) + inc23.bank + dep23 - bankExp23,
     collected: sum(col23.map((c) => c.amount)),
+    otherIncome: inc23.cash + inc23.bank,
     spent: cashExp23 + bankExp23,
     holdings: 0,
     pending: 0,
@@ -171,6 +180,7 @@ export function buildDemoPlan(now: Date = new Date()): DemoPlan {
   plan.festivals.push({
     id: F23, name: "Festival 2023", year: 2023, status: "CLOSED", startDate: new Date(2023, 9, 1), endDate: new Date(2023, 10, 5),
     openingCash: open23.cash, openingBank: open23.bank, closingCash: exp23.cash, closingBank: exp23.bank,
+    countedCash: exp23.cash, countedBank: exp23.bank, reconNote: "Counted by the treasurer and matched to the bank statement.", reconAt: new Date(2023, 10, 4), reconById: TREASURER,
   });
 
   // ---------------- 2026: collection in progress ----------------
@@ -260,15 +270,22 @@ export function buildDemoPlan(now: Date = new Date()): DemoPlan {
   EXP26.forEach(([categoryName, description, amount, paidFrom, vendor, billReference, ago], k) =>
     plan.expenses.push({ id: `demo_e_26_${k + 1}`, festivalId: F26, categoryName, description, amount: rs(amount), paidFrom, paidOn: daysAgo(ago), vendor, billReference, createdById: TREASURER }),
   );
+  plan.otherIncome.push(
+    { id: "demo_i_26_1", festivalId: F26, source: "BANK_INTEREST", description: "Savings account interest, April to September", amount: rs(585), receivedIn: "BANK", receivedOn: daysAgo(6), reference: "Bank entry", createdById: TREASURER },
+    { id: "demo_i_26_2", festivalId: F26, source: "SPONSORSHIP", description: "Local jeweller sponsorship for the pandal", amount: rs(5000), receivedIn: "BANK", receivedOn: daysAgo(5), reference: "Transfer ref 774201", createdById: TREASURER },
+    { id: "demo_i_26_3", festivalId: F26, source: "DONATION", description: "Donation from a well-wisher outside the area", amount: rs(1000), receivedIn: "CASH", receivedOn: daysAgo(11), reference: "Receipt 204", createdById: TREASURER },
+  );
+  const inc26 = { cash: sum(plan.otherIncome.filter((x) => x.festivalId === F26 && x.receivedIn === "CASH").map((x) => x.amount)), bank: sum(plan.otherIncome.filter((x) => x.festivalId === F26 && x.receivedIn === "BANK").map((x) => x.amount)) };
   const direct26 = sum(col26.filter((c) => c.mode === "CASH" && !c.collectorId).map((c) => c.amount));
   const cashExp26 = sum(plan.expenses.filter((e) => e.festivalId === F26 && e.paidFrom === "CASH").map((e) => e.amount));
   const bankExp26 = sum(plan.expenses.filter((e) => e.festivalId === F26 && e.paidFrom === "BANK").map((e) => e.amount));
-  const dep26 = Math.max(0, Math.floor(((exp23.cash + direct26 + confirmed26 - cashExp26) * 0.5) / 10000) * 10000);
+  const dep26 = Math.max(0, Math.floor(((exp23.cash + direct26 + inc26.cash + confirmed26 - cashExp26) * 0.5) / 10000) * 10000);
   plan.bankTxns.push({ id: "demo_b_26_1", festivalId: F26, type: "DEPOSIT_CASH", amount: dep26, date: daysAgo(2), reference: "Deposit slip 5120", createdById: TREASURER });
   const exp26 = {
-    cash: exp23.cash + direct26 + confirmed26 - dep26 - cashExp26,
-    bank: exp23.bank + sum(col26.filter((c) => c.mode === "ONLINE" || (c.mode === "CHEQUE" && c.chequeStatus === "CLEARED")).map((c) => c.amount)) + dep26 - bankExp26,
+    cash: exp23.cash + direct26 + inc26.cash + confirmed26 - dep26 - cashExp26,
+    bank: exp23.bank + sum(col26.filter((c) => c.mode === "ONLINE" || (c.mode === "CHEQUE" && c.chequeStatus === "CLEARED")).map((c) => c.amount)) + inc26.bank + dep26 - bankExp26,
     collected: sum(col26.map((c) => c.amount)),
+    otherIncome: inc26.cash + inc26.bank,
     spent: cashExp26 + bankExp26,
     holdings: holdings26,
     pending: pendingTotal,
